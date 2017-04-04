@@ -325,6 +325,10 @@ function Invoke-EventLogQuery
                                 $EventData.PSObject.TypeNames.Insert(0,'PoShEventLog.NoMessage')
                             }
 
+                            $EventRecordEventData = Get-EventLogRecordEventData -Record $EventData
+
+                            $EventData | Add-Member -MemberType NoteProperty -Name 'RecordEventData' -Value $EventRecordEventData
+
                             $EventData | Add-Member -MemberType NoteProperty -Name 'StandardEventKeywords' -Value ([enum]::GetValues($StandardEventKeywords)| % { if([Int64]$_ -eq  $EventData.Keywords){$_} })
                             $EventData | Add-Member -MemberType NoteProperty -Name 'StandardEventLevel' -Value ([enum]::GetValues($StandardEventLevel)| % { if([Int64]$_ -eq  $EventData.Level){$_} })
                             $EventData | Add-Member -MemberType NoteProperty -Name 'StandardEventOpcode' -Value ([enum]::GetValues($StandardEventOpcode)| % { if([Int64]$_ -eq  $EventData.Opcode){$_} })
@@ -476,6 +480,70 @@ function Get-EventLogQuery
     }
 }
 
+function Get-EventLogRecordEventData
+{
+    <#
+        .SYNOPSIS
+
+        .DESCRIPTION
+
+        .PARAMETER
+        .EXAMPLE
+        .NOTES
+        .INPUTS
+        .OUTPUTS
+    #>
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
+        [ValidateNotNullorEmpty()]
+        [System.Diagnostics.Eventing.Reader.EventLogRecord] $Record
+    )
+    process
+    {
+        try
+        {
+            [xml] $EventXml = $Record.ToXml()
+            $EventData = $EventXml.Event.EventData.Data
+            $EventDataHash = @{}
+
+            if($EventData.Name)
+            {
+                foreach($_EventData in $EventData)
+                {
+                    $EventDataHash."$($EventData.Name)" = $_EventData.'#text'
+                }
+            }
+            else
+            {
+                $EventData = $EventData -split ';'
+
+                if($EventData)
+                {
+                    foreach($_EventData in $EventData)
+                    {
+                        $DataPart = $_EventData -split '='
+                        $EventDataHash."$($DataPart[0])" = $DataPart[1]
+                    }
+                }
+            }
+
+            $EventDataHash
+
+            if($EventXml)
+            {
+                $EventXml = $null
+            }
+        }
+        catch
+        {
+            Write-Warning -Message ('[Function({0})] Failed to get the EventLog Record EventData for RecordID ({0}) in Log ({1}) on Computer ({2}).' -f $MyInvocation.MyCommand, $Record.RecordId, $Record.ContainerLog, $Record.MachineName)
+            Throw $_
+        }
+    }
+}
+
 function Get-EventLogRecordMessageData
 {
     <#
@@ -526,28 +594,28 @@ function ConvertTo-PSEventLogObject
             $EventRecordObject | New-Object -TypeName PSObject
             $EventRecordObject
 
-            ActivityId
-            # BookMark
-            ContainerLog
-            Id
-            KeywordsDisplayNames
-            Level
-            LevelDisplayName
-            LogName
-            MachineName
-            OpcodeDisplayName
-            ProcessID
-            Properties
-            ProviderName
-            Qualifiers
-            RecordId
-            RelatedActivityID
-            Task
-            TaskDisplayName
-            ThreadID
-            TimeCreated
-            UserID
-            Version
+            # ActivityId
+            # # BookMark
+            # ContainerLog
+            # Id
+            # KeywordsDisplayNames
+            # Level
+            # LevelDisplayName
+            # LogName
+            # MachineName
+            # OpcodeDisplayName
+            # ProcessID
+            # Properties
+            # ProviderName
+            # Qualifiers
+            # RecordId
+            # RelatedActivityID
+            # Task
+            # TaskDisplayName
+            # ThreadID
+            # TimeCreated
+            # UserID
+            # Version
 
         }
     }
